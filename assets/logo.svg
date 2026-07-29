@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Sub Scheduler">
+  <rect x="6" y="10" width="52" height="48" rx="8" fill="#2f5bd0"/>
+  <rect x="6" y="10" width="52" height="14" rx="8" fill="#24499c"/>
+  <circle cx="20" cy="10" r="4" fill="#24499c"/>
+  <circle cx="44" cy="10" r="4" fill="#24499c"/>
+  <g fill="#ffffff">
+    <rect x="14" y="30" width="10" height="9" rx="2"/>
+    <rect x="27" y="30" width="10" height="9" rx="2" opacity="0.85"/>
+    <rect x="40" y="30" width="10" height="9" rx="2" opacity="0.7"/>
+    <rect x="14" y="43" width="10" height="9" rx="2" opacity="0.85"/>
+    <rect x="27" y="43" width="10" height="9" rx="2"/>
+    <rect x="40" y="43" width="10" height="9" rx="2" opacity="0.85"/>
+  </g>
+</svg>

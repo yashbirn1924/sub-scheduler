@@ -1,0 +1,10 @@
+#!/bin/sh
+# Blocks private material (real data / branding / internal docs) from being committed.
+# Enable once with:  git config core.hooksPath .githooks
+blocked=$(git diff --cached --name-only | grep -E '(^data/real/|^config\.local\.js$|-logo\.png$|^docs/)')
+if [ -n "$blocked" ]; then
+  echo "❌ Commit blocked — these files are private and must not be committed:"
+  echo "$blocked" | sed 's/^/   /'
+  echo "Unstage them (git restore --staged <file>) or check your .gitignore."
+  exit 1
+fi

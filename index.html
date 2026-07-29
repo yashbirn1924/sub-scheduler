@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sub Scheduler</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="icon" href="assets/logo.svg" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <img class="logo-img" src="assets/logo.svg" alt="Sub Scheduler" />
+      <div>
+        <h1>Sub Scheduler</h1>
+        <p class="tagline">Coverage &amp; schedule builder</p>
+      </div>
+    </div>
+    <div class="controls">
+      <div class="week-nav">
+        <button id="weekPrev" class="btn ghost icon" title="Previous week">‹</button>
+        <span id="weekLabel" class="week-label"></span>
+        <button id="weekNext" class="btn ghost icon" title="Next week">›</button>
+      </div>
+      <label class="day-select">
+        <span>Schedule set</span>
+        <select id="setSelect"></select>
+      </label>
+      <button id="newSetBtn" class="btn ghost" title="Create a schedule set">＋ Set</button>
+      <label class="day-select">
+        <span>Day</span>
+        <select id="daySelect"></select>
+      </label>
+      <button id="resetBtn" class="btn ghost" title="Clear all call-outs">Reset call-outs</button>
+    </div>
+  </header>
+
+  <div class="layout">
+    <nav class="sidebar" id="sidebar"></nav>
+    <main class="content" id="content"></main>
+  </div>
+
+  <div id="editorLayer"></div>
+
+  <script src="boot.js"></script>
+</body>
+</html>

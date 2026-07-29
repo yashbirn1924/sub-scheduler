@@ -1,0 +1,17 @@
+# ---- private deployment layer (never commit) ----
+# Real branding + data-source override
+config.local.js
+# Real school data (roster, schedules, source spreadsheet, normalizer notes)
+/data/real/
+# Real branding assets (keep the neutral assets/logo.svg tracked)
+/assets/*-logo.png
+# Internal docs (PRD, punch list, branding kit, working notes)
+/docs/
+
+# ---- local tooling (may record machine paths / project refs) ----
+.claude/*
+!.claude/launch.json
+
+# ---- os / editor cruft ----
+.DS_Store
+*.log
