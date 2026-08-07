@@ -103,6 +103,7 @@ function presentThisDay(person, day) { return blocksOf(person, day).length > 0; 
 function isFreeInterval(person, day, m0, m1, tentative) {
   if (!isActive(person)) return false;
   if (isCalledOut(person.id, day)) return false;
+  if (calBusyAt(person, day, m0, m1)) return false;      // Google calendar says busy -> not eligible
   for (let m = m0; m < m1; m += STEP) {
     if (statusAt(person, day, m) !== "free") return false;
     if (tentative && tentative.has(person.id + "@" + m)) return false;
@@ -154,6 +155,69 @@ function computeCoverage(day) {
 let _covCache = null;
 function coverage(day) { if (!_covCache) _covCache = {}; return _covCache[day] || (_covCache[day] = computeCoverage(day)); }
 function coverageFor(pid, day) { return coverage(day).results.filter(r => r.chosen && r.chosen.id === pid); }
+
+// ---------- Google Calendar free/busy (Stage 3) ----------
+// Applies ONLY to the "Staff" role. Reason: Lead/Assistant/Specialist/Sub have
+// fixed weekly schedules (the entered UI schedule is authoritative), and
+// free/busy is context-blind — a "free"/prep-hold event still reads as busy, so
+// trusting it would wrongly exclude them. Only Staff have week-varying schedules
+// where the live calendar is the real signal. Layered on top of the entered
+// schedule: a Staff member whose calendar is busy during an open block is
+// excluded from the eligible list. Active only in Supabase mode; a missing
+// email or any failure falls back silently to the entered schedule.
+const CAL_ROLE = "Staff";
+const CAL_ON = !!(window.Store && Store.mode === "supabase" && Store.client && CFG.calendar !== false);
+state.calBusy = {};      // isoDate -> { email -> [{ s:Date, e:Date }] }
+state.calStatus = {};    // isoDate -> "pending" | "done" | "error"
+
+function calEmails() {
+  return [...new Set(state.people.filter(p => p.role === CAL_ROLE && p.email).map(p => p.email))];
+}
+
+async function ensureCalBusy(iso) {
+  if (!CAL_ON || state.calStatus[iso]) return;              // disabled, or already fetched/pending
+  const emails = calEmails();
+  if (!emails.length) { state.calStatus[iso] = "done"; return; }
+  state.calStatus[iso] = "pending";
+  const [y, m, d] = iso.split("-").map(Number);
+  const timeMin = new Date(y, m - 1, d).toISOString();      // local midnight -> next local midnight
+  const timeMax = new Date(y, m - 1, d + 1).toISOString();
+  try {
+    const { data, error } = await Store.client.functions.invoke("freebusy", { body: { emails, timeMin, timeMax } });
+    if (error) throw error;
+    const byEmail = {}, cals = (data && data.calendars) || {};
+    Object.keys(cals).forEach(addr => {
+      byEmail[addr] = (cals[addr].busy || []).map(b => ({ s: new Date(b.start), e: new Date(b.end) }));
+    });
+    state.calBusy[iso] = byEmail;
+    state.calStatus[iso] = "done";
+  } catch (err) {
+    console.warn("[calendar] free/busy fetch failed for " + iso, err);
+    state.calStatus[iso] = "error";
+  }
+  render();                                                 // refresh coverage with the calendar layer applied
+}
+
+// does this person's Google calendar show them busy overlapping [m0,m1) on `day`?
+function calBusyAt(person, day, m0, m1) {
+  if (!CAL_ON || person.role !== CAL_ROLE || !person.email) return false;  // Staff role only
+  const iso = dateKey(day);
+  const busy = state.calBusy[iso] && state.calBusy[iso][person.email];
+  if (!busy || !busy.length) return false;
+  const [y, mo, d] = iso.split("-").map(Number);
+  const bStart = new Date(y, mo - 1, d, Math.floor(m0 / 60), m0 % 60);
+  const bEnd = new Date(y, mo - 1, d, Math.floor(m1 / 60), m1 % 60);
+  return busy.some(iv => iv.s < bEnd && iv.e > bStart);      // interval overlap
+}
+
+function calBadge(day) {
+  if (!CAL_ON) return "";
+  const st = state.calStatus[dateKey(day)];
+  if (st === "pending") return `<span class="cal-badge pending">Checking calendars…</span>`;
+  if (st === "done")    return `<span class="cal-badge ok">Calendar-aware</span>`;
+  if (st === "error")   return `<span class="cal-badge err">Calendar check unavailable</span>`;
+  return "";
+}
 
 // ---------- DOM helpers ----------
 const el = (tag, cls, html) => {
@@ -566,7 +630,7 @@ function renderMaster() {
   wrap.appendChild(el("div", "page-head", `<div>
       <h2>Coverage — ${dLabel}</h2>
       <div class="sub-line">Call out any staff member; their classes and suggested coverage appear here.</div>
-    </div>`));
+    </div>${calBadge(day)}`));
 
   const outPeople = state.people.filter(p => isCalledOut(p.id, day) && isActive(p));
   const stats = el("div", "stat-row");
@@ -677,6 +741,7 @@ function render() {
   renderSidebar();
   renderContent();
   persist();                                          // save after every change
+  if (CAL_ON && state.weekStart) ensureCalBusy(dateKey(state.selectedDay));  // async; re-renders when it lands
 }
 
 // ---------- persistence ----------

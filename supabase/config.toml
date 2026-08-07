@@ -1,0 +1,7 @@
+# Local Supabase CLI config. `project_id` is just a local label; the remote
+# project is chosen via `supabase link --project-ref <ref>`.
+project_id = "sub-scheduler"
+
+# The freebusy function requires a valid signed-in user token (admin-only).
+[functions.freebusy]
+verify_jwt = true
