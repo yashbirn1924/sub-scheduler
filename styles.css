@@ -84,15 +84,19 @@ body { background: var(--bg); color: var(--ink); font-size: 14px; }
 .dot-spec { background: var(--spec); }
 .dot-sub { background: var(--sub); }
 .nav-item .out-flag { margin-left: auto; font-size: 11px; color: var(--out); font-weight: 700; }
+/* Idle = outlined red button (clearly not selected); selected = solid red fill. */
 .nav-master {
-  background: var(--brand); color: #fff; font-weight: 700; justify-content: space-between;
+  background: #fff; color: var(--brand); font-weight: 700;
+  border: 1px solid var(--brand); justify-content: space-between;
 }
-.nav-master:hover { background: var(--brand-dark); }
-.nav-master.active { background: var(--brand-darker); color: #fff; box-shadow: inset 3px 0 0 var(--accent); }
+.nav-master:hover { background: var(--lead-bg); }
+.nav-master.active { background: var(--brand); color: #fff; border-color: var(--brand); font-weight: 700; }
+.nav-master.active:hover { background: var(--brand-dark); }
 .nav-master .badge {
-  background: #fff; color: var(--brand); border-radius: 999px;
+  background: var(--brand); color: #fff; border-radius: 999px;
   padding: 1px 8px; font-size: 12px; font-weight: 800;
 }
+.nav-master.active .badge { background: #fff; color: var(--brand); }
 
 /* ---------- generic ---------- */
 .page-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 8px; }
