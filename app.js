@@ -169,31 +169,45 @@ const CAL_ROLE = "Staff";
 const CAL_ON = !!(window.Store && Store.mode === "supabase" && Store.client && CFG.calendar !== false);
 state.calBusy = {};      // isoDate -> { email -> [{ s:Date, e:Date }] }
 state.calStatus = {};    // isoDate -> "pending" | "done" | "error"
+state.calErrors = {};    // isoDate -> [email, ...] Google could not resolve (typo, ex-employee, external)
+state.calCount = {};     // isoDate -> emails requested (for the "N of M" badge)
 
 function calEmails() {
-  return [...new Set(state.people.filter(p => p.role === CAL_ROLE && p.email).map(p => p.email))];
+  // isActive gate matches every other state.people consumer: don't ship stale
+  // out-of-set Staff (state.people never shrinks) — wastes quota and can trip the cap.
+  return [...new Set(state.people.filter(p => isActive(p) && p.role === CAL_ROLE && p.email).map(p => p.email))];
 }
+// Drop cached free/busy so the next render re-fetches (after roster / email edits).
+function invalidateCal() { state.calBusy = {}; state.calStatus = {}; state.calErrors = {}; state.calCount = {}; }
 
 async function ensureCalBusy(iso) {
   if (!CAL_ON || state.calStatus[iso]) return;              // disabled, or already fetched/pending
   const emails = calEmails();
   if (!emails.length) { state.calStatus[iso] = "done"; return; }
   state.calStatus[iso] = "pending";
+  state.calCount[iso] = emails.length;
+  setTimeout(() => { if (state.calStatus[iso] === "pending") render(); }, 150);  // surface "Checking…" on slow cold starts
   const [y, m, d] = iso.split("-").map(Number);
   const timeMin = new Date(y, m - 1, d).toISOString();      // local midnight -> next local midnight
   const timeMax = new Date(y, m - 1, d + 1).toISOString();
   try {
     const { data, error } = await Store.client.functions.invoke("freebusy", { body: { emails, timeMin, timeMax } });
     if (error) throw error;
-    const byEmail = {}, cals = (data && data.calendars) || {};
+    const byEmail = {}, errored = [], cals = (data && data.calendars) || {};
     Object.keys(cals).forEach(addr => {
+      if ((cals[addr].errors || []).length) {              // Google couldn't read this calendar — treat as no signal, and flag it
+        errored.push(addr);
+        console.warn("[calendar] could not resolve " + addr, cals[addr].errors);
+      }
       byEmail[addr] = (cals[addr].busy || []).map(b => ({ s: new Date(b.start), e: new Date(b.end) }));
     });
     state.calBusy[iso] = byEmail;
+    state.calErrors[iso] = errored;
     state.calStatus[iso] = "done";
   } catch (err) {
     console.warn("[calendar] free/busy fetch failed for " + iso, err);
     state.calStatus[iso] = "error";
+    setTimeout(() => { if (state.calStatus[iso] === "error") { delete state.calStatus[iso]; render(); } }, 20000);  // retry after a transient failure
   }
   render();                                                 // refresh coverage with the calendar layer applied
 }
@@ -212,10 +226,18 @@ function calBusyAt(person, day, m0, m1) {
 
 function calBadge(day) {
   if (!CAL_ON) return "";
-  const st = state.calStatus[dateKey(day)];
+  const iso = dateKey(day);
+  const st = state.calStatus[iso];
   if (st === "pending") return `<span class="cal-badge pending">Checking calendars…</span>`;
-  if (st === "done")    return `<span class="cal-badge ok">Calendar-aware</span>`;
   if (st === "error")   return `<span class="cal-badge err">Calendar check unavailable</span>`;
+  if (st === "done") {
+    const bad = (state.calErrors[iso] || []).length;
+    if (bad) {
+      const total = state.calCount[iso] || 0;
+      return `<span class="cal-badge warn" title="${bad} calendar(s) couldn't be read — those staff fall back to their entered schedule (see console)">Calendar-aware (${total - bad} of ${total})</span>`;
+    }
+    return `<span class="cal-badge ok">Calendar-aware</span>`;
+  }
   return "";
 }
 
@@ -444,6 +466,7 @@ function addPerson(fields) {
     sets: Object.fromEntries(state.sets.map(s => [s.id, emptyWeek()])),
   };
   state.people.push(person); state.byId[id] = person;
+  invalidateCal();                                   // new Staff email may change the free/busy set
   return person;
 }
 // membership is per set: remove/add only affects the currently-viewed set
@@ -486,11 +509,13 @@ function openEditPersonModal(person) {
     if (!name) { alert("Name is required."); return false; }
     const email = box.querySelector("#epEmail").value.trim();
     if (!validEmail(email)) { alert("Please enter a valid email address (or leave it blank)."); return false; }
+    const calDirty = person.role !== box.querySelector("#epRole").value || (person.email || null) !== (email || null);
     person.name = name;
     person.role = box.querySelector("#epRole").value;
     person.subject = box.querySelector("#epSubj").value.trim();
     person.room = box.querySelector("#epRoom").value.trim();
     person.email = email || null;
+    if (calDirty) invalidateCal();                   // role/email change alters the free/busy set
     return true;
   }, "Save");
 }

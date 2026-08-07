@@ -275,6 +275,8 @@ select.assign.unfilled { border-color: var(--out); color: var(--out); }
 .cal-badge.pending { background: #eef1f6; color: var(--muted); }
 .cal-badge.ok { background: #e7f5ee; color: #1f7a4d; }
 .cal-badge.ok::before { content: "📅 "; }
+.cal-badge.warn { background: var(--warn-bg); color: var(--warn-ink); cursor: help; }
+.cal-badge.warn::before { content: "📅 "; }
 .cal-badge.err { background: #fdf0e6; color: #a15a1e; }
 .cal-badge.err::before { content: "⚠ "; }
 
